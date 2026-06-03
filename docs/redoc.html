@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>API de Pronóstico Hidrológico — IDEAM v2.0</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ReDoc CDN -->
+    <redoc spec-url=""></redoc>
+    <script src="https://cdn.jsdelivr.net/npm/redoc@latest/bundles/redoc.standalone.js"></script>
+
+    <script>
+      const spec = {
+        openapi: "3.0.3",
+        info: {
+          title: "API de Pronóstico Hidrológico Integrado (IDEAM)",
+          version: "2.0.0",
+          description: `## Descripción general
+
+Microservicio de **alta precisión** para el pronóstico y alerta de caudales diarios
+utilizando arquitecturas de ensamble **Gradient Boosting** y modelos clásicos de series
+de tiempo (SARIMA, Holt-Winters, Prophet). Diseñado sobre la estación hidrológica
+**Pueblo Nuevo 21117100 (IDEAM)** con serie de entrenamiento 2010–2017 y hold-out de 60 días.
+
+> **Autores:** Oscar Sierra · Karen Caicedo · Ing. Julian Quimbayo · Ing. Jose Miguel Llanos
+> **Institución:** Corporación Universitaria del Huila — Corhuila
+
+---
+
+## Arquitectura del sistema
+
+\`\`\`
+Cliente HTTP
+    │  JSON / multipart/form-data
+    ▼
+FastAPI  app/main.py  (:8000)  +  CORSMiddleware
+    │
+    ├── GET /health  (Infraestructura)
+    │
+    └── Router  /api/v1/forecast  (app/routers/forecast.py)
+            ├── POST /manual   ← JSON body  (ForecastRequest)
+            └── POST /bulk     ← Excel .xlsx (multipart/form-data)
+                        │
+                        ▼
+            Pydantic v2  app/schemas/forecast.py
+            HistoricRecord · ForecastRequest · ForecastResponse · ModelMetrics
+                        │
+                        ▼
+            ML Engine  app/ml/engine.py
+            ├── pipeline.py   → Lag features (1,7,14,30d) + Rolling stats (7,14d) + MinMaxScaler
+            ├── ensemble.py   → 4 modelos de pronóstico
+            │       ├── ★ Gradient Boosting  (sklearn, n=200, d=5, lr=0.05)
+            │       ├── SARIMA               (1,1,1)(1,0,0,30)
+            │       ├── Holt-Winters         (additive trend+seasonal, s=30)
+            │       └── Prophet              (yearly_seasonality, additive)
+            └── classifier.py → Clasificación hidrológica (P25–P95 Pueblo Nuevo)
+                        │
+                        ├── models_store/   (artefactos PKL — volumen Docker montado)
+                        │       ensemble_model.pkl · scaler_features.pkl
+                        │       ensemble_feature_cols.pkl · test_metrics.pkl · serie_historica.pkl
+                        │
+                        ├── app/services/charts.py  → Plotly HTML (histórico/pronóstico/comparativa)
+                        │
+                        └── app/services/forecast_service.py  → ORM persistence
+                                app/models/forecast.py  (SQLAlchemy)
+                                app/database.py  (sessionmaker / get_db)
+                                    │
+                                    ▼
+                            PostgreSQL 16  (Docker Container :5432)
+                            Tabla: forecasts  ·  Alembic migrations
+\`\`\`
+
+---
+
+## Modelos disponibles y métricas (validación out-of-sample, 60 días)
+
+| Modelo        | RMSE   | MAE    | MAPE (%) | NSE      | R²       | MDA (%) |
+|---------------|--------|--------|----------|----------|----------|---------|
+| **Ensamble**  | 0.0749 | 0.0552 | 2.13     | 0.9991   | 0.9991   | 87.10   |
+| Holt-Winters  | 0.3129 | 0.2451 | 9.71     | -1.1148  | -1.1148  | 57.63   |
+| SARIMA        | 0.4608 | 0.3512 | 9.32     | -3.4466  | -3.4466  | 57.63   |
+| Prophet       | 2.1908 | 1.9234 | 47.83    | -102.685 | -102.685 | 47.46   |
+
+> **NSE** (Nash-Sutcliffe Efficiency): óptimo = 1.0; valores negativos indican peor rendimiento que la media histórica.
+> **MDA** (Mean Directional Accuracy): porcentaje de aciertos en la dirección del cambio.
+
+---
+
+## Niveles de alerta hidrológica
+
+Calculados sobre el **caudal medio proyectado** del horizonte seleccionado:
+
+| Nivel      | Condición              | Descripción                          |
+|------------|------------------------|--------------------------------------|
+| \`LOW\`      | media < 1.5 m³/s       | Caudal bajo, seguimiento de rutina   |
+| \`NORMAL\`   | 1.5 ≤ media < 8.0 m³/s | Condiciones normales de operación    |
+| \`HIGH\`     | media ≥ 8.0 m³/s       | Caudal elevado, monitoreo intensivo  |
+
+> El módulo \`classifier.py\` implementa 5 niveles de alerta más granulares (ESTIAJE, LOW, MODERATE, HIGH, CRITICAL) basados en percentiles históricos P25–P95 de la estación Pueblo Nuevo, disponibles a través de \`forecast_service.py\`.
+
+---
+
+## Notas de uso
+
+- Se requieren **mínimo 35 registros diarios continuos** para el cálculo de variables de rezago (máximo lag = 30 días + margen de rolling stats).
+- Las fechas deben estar en formato **ISO 8601** (\`YYYY-MM-DD\`).
+- El horizonte máximo de pronóstico es de **90 días**.
+- La serie debe tener **frecuencia diaria estricta** (sin fechas faltantes); el endpoint aplica \`asfreq("D")\` y retorna HTTP 420 si se detectan nulos.
+- Los gráficos Plotly (\`plot_historic_html\`, \`plot_forecast_html\`, \`plot_comparison_html\`) se generan internamente pero **no se incluyen en el JSON de respuesta** (son consumidos por el frontend directamente desde \`charts.py\`).
+- Entrenar los modelos antes del primer despliegue ejecutando: \`python train_models.py\`
+
+---
+
+**Autores:** Oscar Sierra · Karen Caicedo · Ing. Julian Quimbayo · Ing. Jose Miguel Llanos  
+**Institución:** Corporación Universitaria del Huila — Corhuila  
+**Licencia:** MIT
+`,
+          contact: {
+            name: "Oscar Sierra · Karen Caicedo · Ing. Julian Quimbayo · Ing. Jose Miguel Llanos",
+            url: "https://www.corhuila.edu.co",
+          },
+          license: {
+            name: "MIT · Corporación Universitaria del Huila — Corhuila",
+            url: "https://www.corhuila.edu.co",
+          },
+        },
+        servers: [
+          {
+            url: "http://localhost:8000",
+            description: "Servidor de desarrollo local",
+          },
+          {
+            url: "https://api.ideam.gov.co",
+            description: "Producción",
+          },
+        ],
+        tags: [
+          {
+            name: "Forecasting",
+            description:
+              "Endpoints principales del motor predictivo de caudales.",
+          },
+          {
+            name: "Infraestructura",
+            description: "Monitoreo y estado del servicio.",
+          },
+        ],
+        paths: {
+          "/health": {
+            get: {
+              operationId: "health_check",
+              summary: "Estado del servicio",
+              description:
+                "Verifica que el microservicio está activo y que la sincronización del pipeline ML es correcta.",
+              tags: ["Infraestructura"],
+              responses: {
+                200: {
+                  description: "Servicio saludable.",
+                  content: {
+                    "application/json": {
+                      schema: {
+                        type: "object",
+                        properties: {
+                          status: {
+                            type: "string",
+                            example: "healthy",
+                          },
+                          pipeline_sync: {
+                            type: "boolean",
+                            example: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "/api/v1/forecast/manual": {
+            post: {
+              operationId: "forecast_manual_json",
+              summary: "Pronóstico desde JSON estructurado",
+              description: `Recibe una serie histórica de caudales diarios en formato JSON con validación integrada Pydantic y retorna el pronóstico completo con métricas.
+
+**Flujo interno:**
+1. Validación de mínimo 35 registros.
+2. Ordenamiento e indexado de la serie temporal.
+3. Generación de lag features (1, 7, 14, 30 días).
+4. Selección del modelo (por defecto: **Ensamble**).
+5. Cálculo de nivel de alerta y métricas estáticas de validación cruzada.`,
+              tags: ["Forecasting"],
+              requestBody: {
+                required: true,
+                content: {
+                  "application/json": {
+                    schema: {
+                      $ref: "#/components/schemas/ForecastRequest",
+                    },
+                    examples: {
+                      ejemplo_minimo: {
+                        summary: "Solicitud mínima (30 días, Ensamble)",
+                        value: {
+                          horizon_days: 30,
+                          data: Array.from({ length: 35 }, (_, i) => ({
+                            fecha: new Date(
+                              Date.now() - (35 - i) * 86400000
+                            )
+                              .toISOString()
+                              .split("T")[0],
+                            caudal: parseFloat(
+                              (Math.random() * 5 + 1).toFixed(3)
+                            ),
+                          })),
+                        },
+                      },
+                      con_modelo_sarima: {
+                        summary: "Forzar modelo SARIMA, 15 días",
+                        value: {
+                          horizon_days: 15,
+                          model_override: "SARIMA",
+                          data: Array.from({ length: 40 }, (_, i) => ({
+                            fecha: new Date(
+                              Date.now() - (40 - i) * 86400000
+                            )
+                              .toISOString()
+                              .split("T")[0],
+                            caudal: parseFloat(
+                              (Math.random() * 3 + 0.5).toFixed(3)
+                            ),
+                          })),
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              responses: {
+                200: {
+                  description: "Pronóstico generado exitosamente.",
+                  content: {
+                    "application/json": {
+                      schema: {
+                        $ref: "#/components/schemas/ForecastResponse",
+                      },
+                    },
+                  },
+                },
+                420: {
+                  description:
+                    "La serie temporal contiene fechas faltantes o nulos tras alineación diaria.",
+                  content: {
+                    "application/json": {
+                      schema: { $ref: "#/components/schemas/HTTPError" },
+                      example: {
+                        detail:
+                          "La serie temporal contiene fechas faltantes o nulos tras alineación diaria.",
+                      },
+                    },
+                  },
+                },
+                422: {
+                  description:
+                    "Error de validación Pydantic (campos inválidos, menos de 35 registros, etc.).",
+                  content: {
+                    "application/json": {
+                      schema: {
+                        $ref: "#/components/schemas/ValidationError",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "/api/v1/forecast/bulk": {
+            post: {
+              operationId: "forecast_bulk_excel",
+              summary: "Pronóstico desde archivo Excel (.xlsx)",
+              description: `Carga masiva mediante análisis y validación estructural de archivos Excel (.xlsx).
+
+**Requisitos del archivo:**
+- Extensión \`.xlsx\` o \`.xls\`.
+- Columnas obligatorias: \`Fecha\` (fecha ISO) y \`Caudal\` (numérico ≥ 0).
+- Mínimo **35 filas** de datos.
+
+**Parámetros de formulario:**
+- \`file\`: Archivo Excel.
+- \`horizon_days\`: Horizonte de pronóstico en días (1–90, por defecto 30).
+- \`model_override\`: Opcional. Uno de \`Ensamble\`, \`Holt-Winters\`, \`SARIMA\`, \`Prophet\`.`,
+              tags: ["Forecasting"],
+              requestBody: {
+                required: true,
+                content: {
+                  "multipart/form-data": {
+                    schema: {
+                      type: "object",
+                      required: ["file"],
+                      properties: {
+                        file: {
+                          type: "string",
+                          format: "binary",
+                          description:
+                            "Archivo Excel (.xlsx) con columnas 'Fecha' y 'Caudal'.",
+                        },
+                        horizon_days: {
+                          type: "integer",
+                          minimum: 1,
+                          maximum: 90,
+                          default: 30,
+                          description: "Número de días a pronosticar.",
+                        },
+                        model_override: {
+                          type: "string",
+                          nullable: true,
+                          enum: [
+                            "Ensamble",
+                            "Holt-Winters",
+                            "SARIMA",
+                            "Prophet",
+                          ],
+                          description:
+                            "Forzar un modelo específico (por defecto: Ensamble).",
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              responses: {
+                200: {
+                  description: "Pronóstico generado exitosamente.",
+                  content: {
+                    "application/json": {
+                      schema: {
+                        $ref: "#/components/schemas/ForecastResponse",
+                      },
+                    },
+                  },
+                },
+                400: {
+                  description:
+                    "Formato inválido de archivo, columnas faltantes o registros insuficientes.",
+                  content: {
+                    "application/json": {
+                      schema: { $ref: "#/components/schemas/HTTPError" },
+                      examples: {
+                        formato_invalido: {
+                          summary: "Extensión de archivo incorrecta",
+                          value: {
+                            detail:
+                              "Formato inválido de archivo. Debe ser extensión Excel (.xlsx).",
+                          },
+                        },
+                        columnas_faltantes: {
+                          summary: "Columnas mandatorias ausentes",
+                          value: {
+                            detail:
+                              "El archivo Excel carece de las columnas mandatorias: 'Fecha' y 'Caudal'.",
+                          },
+                        },
+                        registros_insuficientes: {
+                          summary: "Menos de 35 filas",
+                          value: {
+                            detail:
+                              "Mínimo de registros insuficientes en Excel. Se requieren al menos 35 filas.",
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+                420: {
+                  description:
+                    "La serie temporal contiene fechas faltantes o nulos tras alineación diaria.",
+                  content: {
+                    "application/json": {
+                      schema: { $ref: "#/components/schemas/HTTPError" },
+                      example: {
+                        detail:
+                          "La serie temporal contiene fechas faltantes o nulos tras alineación diaria.",
+                      },
+                    },
+                  },
+                },
+                422: {
+                  description:
+                    "Error de tipado: fechas mal formateadas o caudales no numéricos.",
+                  content: {
+                    "application/json": {
+                      schema: { $ref: "#/components/schemas/HTTPError" },
+                      example: {
+                        detail:
+                          "Error de tipado en datos: Fechas mal formateadas o Caudales no numéricos.",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        components: {
+          schemas: {
+            HistoricRecord: {
+              type: "object",
+              required: ["fecha", "caudal"],
+              description: "Registro diario de caudal histórico.",
+              properties: {
+                fecha: {
+                  type: "string",
+                  format: "date",
+                  description: "Fecha del registro (AAAA-MM-DD).",
+                  example: "2024-06-01",
+                },
+                caudal: {
+                  type: "number",
+                  format: "float",
+                  minimum: 0.0,
+                  description: "Caudal medio diario en m³/s.",
+                  example: 3.142,
+                },
+              },
+            },
+            ForecastRequest: {
+              type: "object",
+              required: ["data"],
+              description: "Cuerpo de solicitud de pronóstico vía JSON. Requiere mínimo 35 registros diarios continuos. La serie se ordena por fecha y se aplica `asfreq('D')` internamente.",
+              properties: {
+                horizon_days: {
+                  type: "integer",
+                  minimum: 1,
+                  maximum: 90,
+                  default: 30,
+                  description: "Número de días a pronosticar hacia adelante desde el último registro de la serie.",
+                  example: 30,
+                },
+                model_override: {
+                  type: "string",
+                  nullable: true,
+                  enum: ["Ensamble", "Holt-Winters", "SARIMA", "Prophet"],
+                  description: "Forzar un modelo específico. Si se omite o es `null`, se usa **Ensamble** (Gradient Boosting). El Ensamble tiene el mejor NSE (0.9991) y MDA (87.1 %).",
+                  example: null,
+                },
+                data: {
+                  type: "array",
+                  minItems: 35,
+                  description: "Serie histórica de registros diarios continuos. Mínimo 35 elementos (lag máximo = 30 días + margen de rolling stats de 14 días).",
+                  items: {
+                    $ref: "#/components/schemas/HistoricRecord",
+                  },
+                },
+              },
+            },
+            ModelMetrics: {
+              type: "object",
+              description: "Métricas de validación out-of-sample (hold-out 60 días) calculadas en `train_models.py` y almacenadas en `test_metrics.pkl`.",
+              properties: {
+                rmse: {
+                  type: "number", format: "float",
+                  description: "Root Mean Squared Error (m³/s). Penaliza errores grandes.",
+                  example: 0.0749,
+                },
+                mae: {
+                  type: "number", format: "float",
+                  description: "Mean Absolute Error (m³/s). Error absoluto medio.",
+                  example: 0.0552,
+                },
+                mape: {
+                  type: "number", format: "float",
+                  description: "Mean Absolute Percentage Error (%). Error relativo medio.",
+                  example: 2.13,
+                },
+                nse: {
+                  type: "number", format: "float",
+                  description: "Nash-Sutcliffe Efficiency. Óptimo = 1.0; 0 = igual que la media histórica; negativo = peor que la media.",
+                  example: 0.9991,
+                },
+                r2: {
+                  type: "number", format: "float",
+                  description: "Coeficiente de determinación R². Proporción de varianza explicada por el modelo.",
+                  example: 0.9991,
+                },
+                mda: {
+                  type: "number", format: "float",
+                  description: "Mean Directional Accuracy (%). Porcentaje de aciertos en la dirección del cambio (subida/bajada).",
+                  example: 87.1,
+                },
+              },
+            },
+            ForecastResponse: {
+              type: "object",
+              description: "Resultado completo del pronóstico de caudales. El campo `forecast_id` es auto-generado (UUID v4). Los gráficos Plotly se generan en backend pero NO forman parte del JSON de respuesta.",
+              properties: {
+                forecast_id: {
+                  type: "string",
+                  format: "uuid",
+                  description: "Identificador único de la solicitud, auto-generado (UUID v4).",
+                  example: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+                },
+                best_model: {
+                  type: "string",
+                  enum: ["Ensamble", "Holt-Winters", "SARIMA", "Prophet"],
+                  description: "Modelo utilizado para el pronóstico.",
+                  example: "Ensamble",
+                },
+                horizon_days: {
+                  type: "integer",
+                  minimum: 1,
+                  maximum: 90,
+                  description: "Horizonte de pronóstico en días.",
+                  example: 30,
+                },
+                forecast_dates: {
+                  type: "array",
+                  description: "Fechas del pronóstico en formato AAAA-MM-DD. Longitud igual a `horizon_days`.",
+                  items: { type: "string", format: "date" },
+                  example: ["2024-07-01", "2024-07-02", "2024-07-03"],
+                },
+                forecast_values: {
+                  type: "array",
+                  description: "Valores pronosticados de caudal en m³/s, redondeados a 4 decimales. Misma longitud que `forecast_dates`.",
+                  items: { type: "number", format: "float" },
+                  example: [2.3145, 2.4012, 2.2987],
+                },
+                forecast_mean: {
+                  type: "number",
+                  format: "float",
+                  description: "Media aritmética de los valores pronosticados (m³/s). Base del cálculo de `alert_level`.",
+                  example: 2.3048,
+                },
+                forecast_min: {
+                  type: "number",
+                  format: "float",
+                  description: "Valor mínimo del pronóstico en el horizonte (m³/s).",
+                  example: 1.9871,
+                },
+                forecast_max: {
+                  type: "number",
+                  format: "float",
+                  description: "Valor máximo del pronóstico en el horizonte (m³/s).",
+                  example: 2.7654,
+                },
+                alert_level: {
+                  type: "string",
+                  enum: ["LOW", "NORMAL", "HIGH"],
+                  description: "Nivel de alerta hidrológica basado en `forecast_mean`. **LOW** < 1.5 m³/s · **NORMAL** 1.5–8.0 m³/s · **HIGH** ≥ 8.0 m³/s.",
+                  example: "NORMAL",
+                },
+                metrics: {
+                  allOf: [{ $ref: "#/components/schemas/ModelMetrics" }],
+                  description: "Métricas de validación cruzada (out-of-sample, 60 días) del modelo seleccionado.",
+                },
+                model_comparison: {
+                  type: "object",
+                  description: "Comparativa de métricas de validación para los cuatro modelos disponibles. Las métricas son estáticas (calculadas en `train_models.py`) y no varían por solicitud.",
+                  additionalProperties: {
+                    $ref: "#/components/schemas/ModelMetrics",
+                  },
+                  example: {
+                    Ensamble: {
+                      rmse: 0.0749, mae: 0.0552, mape: 2.13,
+                      nse: 0.9991, r2: 0.9991, mda: 87.1,
+                    },
+                    "Holt-Winters": {
+                      rmse: 0.3129, mae: 0.2451, mape: 9.71,
+                      nse: -1.1148, r2: -1.1148, mda: 57.63,
+                    },
+                    SARIMA: {
+                      rmse: 0.4608, mae: 0.3512, mape: 9.32,
+                      nse: -3.4466, r2: -3.4466, mda: 57.63,
+                    },
+                    Prophet: {
+                      rmse: 2.1908, mae: 1.9234, mape: 47.83,
+                      nse: -102.6846, r2: -102.6846, mda: 47.46,
+                    },
+                  },
+                },
+              },
+            },
+            HTTPError: {
+              type: "object",
+              description: "Respuesta de error estándar de FastAPI.",
+              properties: {
+                detail: {
+                  type: "string",
+                  description: "Descripción del error.",
+                  example: "La serie temporal contiene fechas faltantes.",
+                },
+              },
+            },
+            ValidationError: {
+              type: "object",
+              description: "Error de validación estándar de FastAPI / Pydantic.",
+              properties: {
+                detail: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      loc: {
+                        type: "array",
+                        items: { type: "string" },
+                        example: ["body", "data"],
+                      },
+                      msg: {
+                        type: "string",
+                        example:
+                          "Se requieren mínimo 35 registros diarios continuos.",
+                      },
+                      type: {
+                        type: "string",
+                        example: "value_error",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      Redoc.init(spec, {
+        theme: {
+          colors: {
+            primary: { main: "#0057b8" },
+            success: { main: "#1a7f37" },
+            warning: { main: "#b08800" },
+            error: { main: "#cf222e" },
+            text: { primary: "#1c2128" },
+          },
+          typography: {
+            fontFamily: "'Inter', sans-serif",
+            headings: { fontFamily: "'Inter', sans-serif", fontWeight: "700" },
+            code: { fontFamily: "'Fira Mono', 'Cascadia Code', monospace" },
+          },
+          sidebar: {
+            backgroundColor: "#0d1117",
+            textColor: "#e6edf3",
+          },
+          logo: {
+            maxHeight: "60px",
+          },
+          rightPanel: {
+            backgroundColor: "#161b22",
+          },
+        },
+        scrollYOffset: 0,
+        hideDownloadButton: false,
+        pathInMiddlePanel: false,
+        nativeScrollbars: false,
+        expandResponses: "200",
+        hideLoading: false,
+        requiredPropsFirst: true,
+        sortPropsAlphabetically: false,
+      }, document.querySelector('redoc'));
+    </script>
+  </body>
+</html>

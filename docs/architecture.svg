@@ -1,0 +1,215 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 730" width="920" height="730">
+  <defs>
+    <marker id="arr" markerWidth="7" markerHeight="7" refX="5.5" refY="3.5" orient="auto">
+      <path d="M0,0 L0,7 L7,3.5 z" fill="#94a3b8"/>
+    </marker>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#00000018"/>
+    </filter>
+    <style>
+      text { font-family: 'Inter','Segoe UI',Arial,sans-serif; }
+    </style>
+  </defs>
+
+  <!-- ░░░ BACKGROUND ░░░ -->
+  <rect width="920" height="730" fill="#f1f5f9"/>
+
+  <!-- ═══ TITLE ═══ -->
+  <text x="460" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">Arquitectura del Sistema — API de Pronóstico Hidrológico IDEAM v2.0</text>
+  <line x1="60" y1="30" x2="860" y2="30" stroke="#cbd5e1" stroke-width="1"/>
+
+  <!-- ═══════════════════════════════════════════════
+       LAYER 1 — HTTP CLIENTS  (y 38 → 98)
+  ══════════════════════════════════════════════════ -->
+  <rect x="28" y="38" width="864" height="60" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="460" y="55" text-anchor="middle" font-size="9.5" font-weight="700" fill="#1e40af" letter-spacing="1">CLIENTES HTTP</text>
+
+  <!-- chips -->
+  <rect x="55"  y="62" width="155" height="26" rx="5" fill="#ffffff" fill-opacity="0.7" stroke="#3b82f6" stroke-width="1"/>
+  <text x="132" y="79" text-anchor="middle" font-size="8.5" fill="#1e40af">cURL · Postman</text>
+
+  <rect x="228" y="62" width="155" height="26" rx="5" fill="#ffffff" fill-opacity="0.7" stroke="#3b82f6" stroke-width="1"/>
+  <text x="305" y="79" text-anchor="middle" font-size="8.5" fill="#1e40af">Frontend Web</text>
+
+  <rect x="401" y="62" width="165" height="26" rx="5" fill="#ffffff" fill-opacity="0.7" stroke="#3b82f6" stroke-width="1"/>
+  <text x="483" y="79" text-anchor="middle" font-size="8.5" fill="#1e40af">Jupyter Notebooks</text>
+
+  <rect x="584" y="62" width="210" height="26" rx="5" fill="#ffffff" fill-opacity="0.7" stroke="#3b82f6" stroke-width="1"/>
+  <text x="689" y="79" text-anchor="middle" font-size="8.5" fill="#1e40af">Sistemas IDEAM / SCADA</text>
+
+  <!-- arrow 1→2 -->
+  <line x1="460" y1="98" x2="460" y2="116" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="468" y="111" font-size="7.5" fill="#94a3b8">HTTP / REST</text>
+
+  <!-- ═══════════════════════════════════════════════
+       LAYER 2 — FASTAPI  (y 117 → 197)
+  ══════════════════════════════════════════════════ -->
+  <rect x="28" y="117" width="864" height="80" rx="8" fill="#fce7f3" stroke="#db2777" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="460" y="133" text-anchor="middle" font-size="9.5" font-weight="700" fill="#9d174d" letter-spacing="0.5">FastAPI Application  ·  app/main.py  ·  Uvicorn :8000</text>
+
+  <!-- GET /health -->
+  <rect x="48"  y="140" width="170" height="46" rx="5" fill="#ffffff" fill-opacity="0.65" stroke="#db2777" stroke-width="1"/>
+  <text x="133" y="156" text-anchor="middle" font-size="9" font-weight="700" fill="#881337">GET /health</text>
+  <text x="133" y="169" text-anchor="middle" font-size="7.5" fill="#9d174d">tag: Infraestructura</text>
+  <text x="133" y="181" text-anchor="middle" font-size="7.5" fill="#9d174d">status · pipeline_sync</text>
+
+  <!-- Router -->
+  <rect x="238" y="140" width="320" height="46" rx="5" fill="#ffffff" fill-opacity="0.65" stroke="#db2777" stroke-width="1"/>
+  <text x="398" y="156" text-anchor="middle" font-size="9" font-weight="700" fill="#881337">Router  /api/v1/forecast</text>
+  <text x="398" y="169" text-anchor="middle" font-size="7.5" fill="#9d174d">app/routers/forecast.py  ·  CORSMiddleware</text>
+  <text x="398" y="181" text-anchor="middle" font-size="7.5" fill="#9d174d">allow_origins=["*"]  ·  allow_methods=["*"]</text>
+
+  <!-- Config -->
+  <rect x="578" y="140" width="286" height="46" rx="5" fill="#ffffff" fill-opacity="0.65" stroke="#db2777" stroke-width="1"/>
+  <text x="721" y="156" text-anchor="middle" font-size="9" font-weight="700" fill="#881337">Config &amp; Entorno</text>
+  <text x="721" y="169" text-anchor="middle" font-size="7.5" fill="#9d174d">app/config.py  ·  pydantic-settings</text>
+  <text x="721" y="181" text-anchor="middle" font-size="7.5" fill="#9d174d">DATABASE_URL · MODEL_STORE_PATH · .env</text>
+
+  <!-- arrow 2→3 -->
+  <line x1="460" y1="197" x2="460" y2="213" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════
+       LAYER 3 — ENDPOINTS  (y 214 → 290)
+  ══════════════════════════════════════════════════ -->
+  <!-- /manual -->
+  <rect x="28" y="214" width="430" height="76" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="243" y="230" text-anchor="middle" font-size="9.5" font-weight="700" fill="#4c1d95">POST  /api/v1/forecast/manual</text>
+  <text x="243" y="243" text-anchor="middle" font-size="8" fill="#5b21b6">Content-Type: application/json</text>
+  <text x="243" y="256" text-anchor="middle" font-size="7.5" fill="#6d28d9">Body: ForecastRequest { data: HistoricRecord[≥35], horizon_days: 1–90 }</text>
+  <text x="243" y="268" text-anchor="middle" font-size="7.5" fill="#6d28d9">model_override: Ensamble | SARIMA | Holt-Winters | Prophet</text>
+  <text x="243" y="282" text-anchor="middle" font-size="7" fill="#7c3aed">✓ 200  ✗ 420 (serie inválida)  ✗ 422 (validación Pydantic)</text>
+
+  <!-- /bulk -->
+  <rect x="462" y="214" width="430" height="76" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="677" y="230" text-anchor="middle" font-size="9.5" font-weight="700" fill="#4c1d95">POST  /api/v1/forecast/bulk</text>
+  <text x="677" y="243" text-anchor="middle" font-size="8" fill="#5b21b6">Content-Type: multipart/form-data  ·  Archivo .xlsx / .xls</text>
+  <text x="677" y="256" text-anchor="middle" font-size="7.5" fill="#6d28d9">Cols: Fecha + Caudal  ·  Filas ≥ 35  ·  horizon_days (form)</text>
+  <text x="677" y="268" text-anchor="middle" font-size="7.5" fill="#6d28d9">model_override (form, opcional)  ·  pandas read_excel()</text>
+  <text x="677" y="282" text-anchor="middle" font-size="7" fill="#7c3aed">✓ 200  ✗ 400 (archivo/cols)  ✗ 420 (serie)  ✗ 422 (tipos)</text>
+
+  <!-- converging arrows -->
+  <line x1="243" y1="290" x2="360" y2="308" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="677" y1="290" x2="560" y2="308" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════
+       LAYER 4 — PYDANTIC SCHEMAS  (y 309 → 359)
+  ══════════════════════════════════════════════════ -->
+  <rect x="90" y="309" width="740" height="50" rx="8" fill="#fef9c3" stroke="#ca8a04" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="460" y="326" text-anchor="middle" font-size="9.5" font-weight="700" fill="#713f12">Validación  ·  app/schemas/forecast.py  (Pydantic v2)</text>
+
+  <rect x="112" y="333" width="142" height="18" rx="4" fill="#fef08a" stroke="#ca8a04" stroke-width="0.8"/>
+  <text x="183" y="346" text-anchor="middle" font-size="8" fill="#713f12">HistoricRecord</text>
+
+  <rect x="266" y="333" width="142" height="18" rx="4" fill="#fef08a" stroke="#ca8a04" stroke-width="0.8"/>
+  <text x="337" y="346" text-anchor="middle" font-size="8" fill="#713f12">ForecastRequest</text>
+
+  <rect x="420" y="333" width="142" height="18" rx="4" fill="#fef08a" stroke="#ca8a04" stroke-width="0.8"/>
+  <text x="491" y="346" text-anchor="middle" font-size="8" fill="#713f12">ForecastResponse</text>
+
+  <rect x="574" y="333" width="142" height="18" rx="4" fill="#fef08a" stroke="#ca8a04" stroke-width="0.8"/>
+  <text x="645" y="346" text-anchor="middle" font-size="8" fill="#713f12">ModelMetrics</text>
+
+  <!-- arrow 4→5 -->
+  <line x1="460" y1="359" x2="460" y2="373" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════
+       LAYER 5 — ML  (y 374 → 488)
+  ══════════════════════════════════════════════════ -->
+  <rect x="28" y="374" width="864" height="114" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="460" y="390" text-anchor="middle" font-size="9.5" font-weight="700" fill="#14532d" letter-spacing="0.5">Capa Machine Learning  ·  app/ml/</text>
+
+  <!-- engine.py -->
+  <rect x="46"  y="396" width="192" height="82" rx="6" fill="#ffffff" fill-opacity="0.7" stroke="#16a34a" stroke-width="1"/>
+  <text x="142" y="412" text-anchor="middle" font-size="9" font-weight="700" fill="#14532d">engine.py</text>
+  <text x="142" y="425" text-anchor="middle" font-size="7.5" fill="#166534">Orquestador principal</text>
+  <text x="142" y="437" text-anchor="middle" font-size="7.5" fill="#166534">generate_forecast_pipeline()</text>
+  <text x="142" y="449" text-anchor="middle" font-size="7.5" fill="#166534">calculate_metrics_frozen()</text>
+  <text x="142" y="461" text-anchor="middle" font-size="7.5" fill="#166534">create_lag_features()</text>
+  <text x="142" y="473" text-anchor="middle" font-size="7.5" fill="#166534">VALID_MODELS list</text>
+
+  <!-- pipeline.py -->
+  <rect x="252" y="396" width="192" height="82" rx="6" fill="#ffffff" fill-opacity="0.7" stroke="#16a34a" stroke-width="1"/>
+  <text x="348" y="412" text-anchor="middle" font-size="9" font-weight="700" fill="#14532d">pipeline.py</text>
+  <text x="348" y="425" text-anchor="middle" font-size="7.5" fill="#166534">Feature Engineering</text>
+  <text x="348" y="437" text-anchor="middle" font-size="7.5" fill="#166534">Lags: 1 · 7 · 14 · 30 días</text>
+  <text x="348" y="449" text-anchor="middle" font-size="7.5" fill="#166534">Rolling mean/std (7d, 14d)</text>
+  <text x="348" y="461" text-anchor="middle" font-size="7.5" fill="#166534">compute_lag_features()</text>
+  <text x="348" y="473" text-anchor="middle" font-size="7.5" fill="#166534">normalize_features() · MinMaxScaler</text>
+
+  <!-- ensemble.py -->
+  <rect x="458" y="396" width="192" height="82" rx="6" fill="#ffffff" fill-opacity="0.7" stroke="#16a34a" stroke-width="1"/>
+  <text x="554" y="412" text-anchor="middle" font-size="9" font-weight="700" fill="#14532d">ensemble.py</text>
+  <text x="554" y="425" text-anchor="middle" font-size="7.5" fill="#166534">run_forecast() · 4 modelos</text>
+  <text x="554" y="437" text-anchor="middle" font-size="7.5" fill="#166534">★ Gradient Boosting (sklearn)</text>
+  <text x="554" y="449" text-anchor="middle" font-size="7.5" fill="#166534">SARIMA (1,1,1)(1,0,0,30)</text>
+  <text x="554" y="461" text-anchor="middle" font-size="7.5" fill="#166534">Holt-Winters add. (s=30)</text>
+  <text x="554" y="473" text-anchor="middle" font-size="7.5" fill="#166534">Prophet (yearly_seasonality)</text>
+
+  <!-- classifier.py -->
+  <rect x="664" y="396" width="202" height="82" rx="6" fill="#ffffff" fill-opacity="0.7" stroke="#16a34a" stroke-width="1"/>
+  <text x="765" y="412" text-anchor="middle" font-size="9" font-weight="700" fill="#14532d">classifier.py</text>
+  <text x="765" y="425" text-anchor="middle" font-size="7.5" fill="#166534">Alertas Hidrológicas (P25–P95)</text>
+  <text x="765" y="437" text-anchor="middle" font-size="7.5" fill="#166534">ESTIAJE  &lt; 5.8 m³/s</text>
+  <text x="765" y="449" text-anchor="middle" font-size="7.5" fill="#166534">LOW · MODERATE · HIGH</text>
+  <text x="765" y="461" text-anchor="middle" font-size="7.5" fill="#166534">CRITICAL  &gt; 28.0 m³/s</text>
+  <text x="765" y="473" text-anchor="middle" font-size="7.5" fill="#166534">Estación Pueblo Nuevo 21117100</text>
+
+  <!-- arrows ML → layer 6 -->
+  <line x1="220" y1="488" x2="220" y2="502" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="700" y1="488" x2="700" y2="502" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════
+       LAYER 6 — MODELS STORE + CHARTS  (y 503 → 566)
+  ══════════════════════════════════════════════════ -->
+  <!-- models_store -->
+  <rect x="28"  y="503" width="386" height="63" rx="8" fill="#f0fdf4" stroke="#15803d" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="221" y="519" text-anchor="middle" font-size="9.5" font-weight="700" fill="#14532d">models_store/  —  Artefactos ML</text>
+  <text x="221" y="532" text-anchor="middle" font-size="7.5" fill="#166534">ensemble_model.pkl  ·  scaler_features.pkl  ·  ensemble_feature_cols.pkl</text>
+  <text x="221" y="544" text-anchor="middle" font-size="7.5" fill="#166534">test_metrics.pkl  ·  serie_historica.pkl  (train+test 2010–2017)</text>
+  <text x="221" y="556" text-anchor="middle" font-size="7" fill="#14532d">Generados por train_models.py  ·  Hold-out 60 días  ·  GB (n=200, d=5, lr=0.05)</text>
+
+  <!-- charts.py -->
+  <rect x="506" y="503" width="386" height="63" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="699" y="519" text-anchor="middle" font-size="9.5" font-weight="700" fill="#7c2d12">app/services/charts.py  —  Plotly</text>
+  <text x="699" y="532" text-anchor="middle" font-size="7.5" fill="#9a3412">plot_historic_html · plot_forecast_html · plot_comparison_html</text>
+  <text x="699" y="544" text-anchor="middle" font-size="7.5" fill="#c2410c">Histórico 120d · Horizonte futuro · Comparativa con línea divisoria</text>
+  <text x="699" y="556" text-anchor="middle" font-size="7" fill="#9a3412">Retorna HTML Plotly embebible  (include_plotlyjs="cdn", full_html=False)</text>
+
+  <!-- arrows layer 6 → layer 7 -->
+  <line x1="460" y1="566" x2="460" y2="580" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════
+       LAYER 7 — PERSISTENCE + DB  (y 581 → 660)
+  ══════════════════════════════════════════════════ -->
+  <!-- forecast_service -->
+  <rect x="28"  y="581" width="444" height="79" rx="8" fill="#f1f5f9" stroke="#475569" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="250" y="597" text-anchor="middle" font-size="9.5" font-weight="700" fill="#1e293b">app/services/forecast_service.py</text>
+  <text x="250" y="610" text-anchor="middle" font-size="7.5" fill="#334155">Orquesta: ensemble → classifier → ORM → ForecastResponse</text>
+  <text x="250" y="622" text-anchor="middle" font-size="7.5" fill="#334155">app/models/forecast.py  ·  SQLAlchemy Mapped Columns</text>
+  <text x="250" y="634" text-anchor="middle" font-size="7" fill="#475569">id (UUID4) · horizon_days · best_model · rmse · mae · mape</text>
+  <text x="250" y="645" text-anchor="middle" font-size="7" fill="#475569">nse · r2 · mda · forecast_dates[] · forecast_values[] · alert_level</text>
+  <text x="250" y="656" text-anchor="middle" font-size="7" fill="#64748b">app/database.py · sessionmaker · get_db() Depends · check_db_connection()</text>
+
+  <!-- PostgreSQL -->
+  <rect x="482" y="581" width="410" height="79" rx="8" fill="#e0e7ff" stroke="#4f46e5" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="687" y="597" text-anchor="middle" font-size="9.5" font-weight="700" fill="#1e1b4b">PostgreSQL 16  ·  Docker Container :5432</text>
+  <text x="687" y="610" text-anchor="middle" font-size="7.5" fill="#3730a3">DATABASE_URL via variables de entorno (.env)</text>
+  <text x="687" y="622" text-anchor="middle" font-size="7.5" fill="#3730a3">postgres_data volume  ·  Health check: pg_isready cada 5 s</text>
+  <text x="687" y="634" text-anchor="middle" font-size="7" fill="#4f46e5">Alembic migrations  ·  alembic/versions/0001_initial.py</text>
+  <text x="687" y="645" text-anchor="middle" font-size="7" fill="#4f46e5">Tabla forecasts: ARRAY(Text) · ARRAY(Float) · UUID PK</text>
+  <text x="687" y="656" text-anchor="middle" font-size="7" fill="#6366f1">docker-compose.yml  ·  api depends_on: db (service_healthy)</text>
+
+  <!-- ═══════════════════════════════════════════════
+       LAYER 8 — DOCKER FOOTER  (y 670 → 710)
+  ══════════════════════════════════════════════════ -->
+  <rect x="28" y="670" width="864" height="40" rx="8" fill="#ddd6fe" stroke="#4338ca" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="460" y="687" text-anchor="middle" font-size="9.5" font-weight="700" fill="#1e1b4b">Infraestructura Docker  ·  docker/docker-compose.yml  ·  docker/Dockerfile  ·  docker/entrypoint.sh</text>
+  <text x="460" y="702" text-anchor="middle" font-size="8" fill="#312e81">python:3.11.10-slim + CmdStan 2.35.0 (Prophet)  ·  API Container :8000  ←→  DB Container :5432  ·  Vols: models_store/ · data/</text>
+
+  <!-- ═══════════════════════════════════════════════
+       LEGEND  (bottom-right corner)
+  ══════════════════════════════════════════════════ -->
+  <rect x="28" y="716" width="864" height="10" rx="4" fill="#e2e8f0" stroke="none"/>
+  <text x="460" y="724" text-anchor="middle" font-size="7" fill="#94a3b8">Estación de referencia: Pueblo Nuevo 21117100  ·  Serie temporal: 2010–2017  ·  Frecuencia: diaria  ·  Unidad: m³/s</text>
+
+</svg>
