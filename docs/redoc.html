@@ -34,6 +34,9 @@ utilizando arquitecturas de ensamble **Gradient Boosting** y modelos clásicos d
 de tiempo (SARIMA, Holt-Winters, Prophet). Diseñado sobre la estación hidrológica
 **Pueblo Nuevo 21117100 (IDEAM)** con serie de entrenamiento 2010–2017 y hold-out de 60 días.
 
+> **Autores:** Oscar Sierra · Karen Caicedo · Ing. Julian Quimbayo · Ing. Jose Miguel Llanos
+> **Institución:** Corporación Universitaria del Huila — Corhuila
+
 ---
 
 ## Arquitectura del sistema
@@ -117,12 +120,20 @@ Calculados sobre el **caudal medio proyectado** del horizonte seleccionado:
 - La serie debe tener **frecuencia diaria estricta** (sin fechas faltantes); el endpoint aplica \`asfreq("D")\` y retorna HTTP 420 si se detectan nulos.
 - Los gráficos Plotly (\`plot_historic_html\`, \`plot_forecast_html\`, \`plot_comparison_html\`) se generan internamente pero **no se incluyen en el JSON de respuesta** (son consumidos por el frontend directamente desde \`charts.py\`).
 - Entrenar los modelos antes del primer despliegue ejecutando: \`python train_models.py\`
+
+---
+
+**Autores:** Oscar Sierra · Karen Caicedo · Ing. Julian Quimbayo · Ing. Jose Miguel Llanos  
+**Institución:** Corporación Universitaria del Huila — Corhuila  
+**Licencia:** MIT
 `,
           contact: {
-            name: "Creado por: Oscar Sierra · Karen Caicedo · Ing. Julian Quimbayo · Ing. Jose Miguel Llanos",
+            name: "Oscar Sierra · Karen Caicedo · Ing. Julian Quimbayo · Ing. Jose Miguel Llanos",
+            url: "https://www.corhuila.edu.co",
           },
           license: {
-            name: "MIT",
+            name: "MIT · Corporación Universitaria del Huila — Corhuila",
+            url: "https://www.corhuila.edu.co",
           },
         },
         servers: [
